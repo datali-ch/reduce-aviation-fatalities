@@ -5,8 +5,24 @@ from time import time
 
 
 def train_lgb_model(train_set, test_set, label, training_time):
-    accuracy_train = []
-    accuracy_test = []
+
+    alpha = {
+        "range": (1e-1, 1e-6),
+        "log_scale": True
+    }
+
+    beta = {
+        "range": (10, 1e3),
+        "log_scale": True
+    }
+
+    gamma = {
+        "range": (10, 10*train_set.shape[1]-1),
+        "log_scale": False
+    }
+
+    accuracy = [[], []]
+    all_models = []
 
     learning_rate = []
     max_bin = []
@@ -16,9 +32,21 @@ def train_lgb_model(train_set, test_set, label, training_time):
     timeout = time() + 60*60*training_time
 
     while time() < timeout:
-        learning_rate.append(10 ** (-6 * np.random.rand()))
-        max_bin.append(int(10 ** np.random.uniform(1, 3)))
-        num_leaves.append(int(np.random.uniform(10, 10 * train_set.shape[1] - 1)))
+
+        if alpha["log_scale"]:
+            learning_rate.append(10 ** (np.random.uniform(*np.log10(alpha["range"]))))
+        else:
+            learning_rate.append(np.random.uniform(*alpha["range"]))
+
+        if beta["log_scale"]:
+            max_bin.append(int(10 ** (np.random.uniform(*np.log10(beta["range"])))))
+        else:
+            max_bin.append(int(np.random.uniform(*beta["range"])))
+
+        if gamma["log_scale"]:
+            num_leaves.append(int(10 ** (np.random.uniform(*np.log10(gamma["range"])))))
+        else:
+            num_leaves.append(int(np.random.uniform(*gamma["range"])))
 
         features = list(train_set)
         features.remove(label)
@@ -39,15 +67,17 @@ def train_lgb_model(train_set, test_set, label, training_time):
         lgb_train = lgb.Dataset(train_set[features], train_set[label])
         lgb_test = lgb.Dataset(test_set[features], test_set[label])
 
-        lgb_model = lgb.train(params, lgb_train, 10000, valid_sets=lgb_test, early_stopping_rounds=50, verbose_eval=100)
+        curr_model = lgb.train(params, lgb_train, 10000, valid_sets=lgb_test, early_stopping_rounds=50,
+                               verbose_eval=100)
+        all_models.append(curr_model)
 
-        pred_train = lgb_model.predict(train_set[features], num_iteration=lgb_model.best_iteration)
-        pred_test = lgb_model.predict(test_set[features], num_iteration=lgb_model.best_iteration)
+        j = 0
+        for dataset in (train_set, test_set):
 
-        predicted_train = np.argmax(pred_train, axis=1)
-        predicted_test = np.argmax(pred_test, axis=1)
+            probabilities = curr_model.predict(dataset[features], num_iteration=curr_model.best_iteration)
+            predicted_labels = np.argmax(probabilities, axis=1)
+            accuracy[i] = np.append(accuracy[i], accuracy_score(dataset[label], predicted_labels))
+            i = j+1
 
-        accuracy_train = np.append(accuracy_train, accuracy_score(train_set[label], predicted_train))
-        accuracy_test = np.append(accuracy_test, accuracy_score(test_set[label], predicted_test))
-
-    return lgb_model
+    parameters = [learning_rate, max_bin, num_leaves]
+    return all_models, accuracy, parameters
