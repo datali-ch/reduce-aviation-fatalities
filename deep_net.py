@@ -7,66 +7,76 @@ from sklearn.metrics import accuracy_score
 
 
 def train_neural_net(train_set, test_set, label, training_time):
+    PARAM_RANGE = {
+        "learning_rate": (1e-1, 1e-6),
+        "layers": (10, 1e3),
+        "lr_decay": (0.5, 1e-8)
+    }
+    BATCH_NORM = False
+    EPOCHS = 10
+    BATCH_SIZE = 1000
+    BETA_1 = 0.9
+    BETA_2 = 0.999
+
+    all_models = []
+    accuracy = [[], []]
+    learning_rate = []
+    lr_decay = []
+    deep_layers = []
+
     features = list(train_set)
     features.remove(label)
-
-    curr_epochs = 10
-    curr_batch = 1000
-
-    alpha = []
-    deep_layers = []
-    lr_decay = []
-    BATCH_NORM = []
-
-    accuracy_train = []
-    accuracy_test = []
+    num_class = len(np.unique(train_set[label])) + 1
 
     i = 0
-    timeout = time() + 60*60*training_time
+    timeout = time() + 60 * 60 * training_time
+
     while time() < timeout:
 
-        alpha.append(10 ** (-6 * np.random.rand()))
-        deep_layers.append(int(10 ** (np.random.uniform(1, 5))))
-        lr_decay.append(bool(random.getrandbits(1)) * (10 ** (np.random.uniform(-8, 0))))
-        BATCH_NORM.append(bool(random.getrandbits(1)))
+        learning_rate.append(get_random_parameters(PARAM_RANGE["learning_rate"], True))
+        lr_decay.append(bool(random.getrandbits(1)) * get_random_parameters(PARAM_RANGE["lr_decay"], True))
+        deep_layers.append(get_random_parameters(PARAM_RANGE["layers"], False))
 
         # instantiate model
         model = tf.keras.models.Sequential()
 
         # Input layers
         model.add(layers.Dense(10, input_dim=train_set.shape[1] - 1))
-        if BATCH_NORM[i]:
+        if BATCH_NORM:
             model.add(layers.BatchNormalization())
         model.add(layers.Activation('relu'))
 
         # Intermediary layers
         model.add(layers.Dense(deep_layers[i]))
-        if BATCH_NORM[i]:
+        if BATCH_NORM:
             model.add(layers.BatchNormalization())
         model.add(layers.Activation('relu'))
 
         # Output layer
-        model.add(layers.Dense(len(np.unique(train_set[label])) + 1))
-        if BATCH_NORM[i]:
+        model.add(layers.Dense(num_class))
+        if BATCH_NORM:
             model.add(layers.BatchNormalization())
         model.add(layers.Activation('softmax'))
 
-        adamOptimizer = tf.keras.optimizers.Adam(lr=alpha[i], beta_1=0.9, beta_2=0.999, epsilon=None,
+        adamOptimizer = tf.keras.optimizers.Adam(lr=learning_rate[i],
                                                  decay=lr_decay[i],
-                                                 amsgrad=False);
+                                                 beta_1=BETA_1,
+                                                 beta_2=BETA_2,
+                                                 epsilon=None,
+                                                 amsgrad=False)
         model.compile(optimizer=adamOptimizer,
                       loss='categorical_crossentropy',
                       metrics=['accuracy'])
 
-        history = model.fit(train_set[features], tf.keras.utils.to_categorical(train_set[label]),
-                            epochs=curr_epochs,
-                            batch_size=curr_batch)
+        curr_model = model.fit(train_set[features], tf.keras.utils.to_categorical(train_set[label]), epochs=EPOCHS,
+                               batch_size=BATCH_SIZE, verbose=0)
+        all_models.append(curr_model)
 
-        predicted_train = np.argmax(model.predict(train_set[features]), axis=1)
-        predicted_test = np.argmax(model.predict(test_set[features]), axis=1)
-
-        accuracy_train = np.append(accuracy_train, accuracy_score(train_set[label], predicted_train))
-        accuracy_test = np.append(accuracy_test, accuracy_score(test_set[label], predicted_test))
+        j = 0
+        for dataset in (train_set, test_set):
+            predicted = np.argmax(model.predict(dataset[features]), axis=1)
+            accuracy[j] = np.append(accuracy[j], accuracy_score(dataset[label], predicted))
+            j = j + 1
 
         """
         curr_stats = np.column_stack((history.history["loss"], history.history["acc"]))
@@ -86,4 +96,14 @@ def train_neural_net(train_set, test_set, label, training_time):
         """
         i = i + 1
 
-    return history.model
+    parameters = [learning_rate, lr_decay, deep_layers]
+    return all_models, accuracy, parameters
+
+
+def get_random_parameters(param_range, log_scale):
+    if log_scale:
+        param = 10 ** (np.random.uniform(*np.log10(param_range)))
+    else:
+        param = int(np.random.uniform(*param_range))
+
+    return param
