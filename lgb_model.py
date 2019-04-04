@@ -2,6 +2,7 @@ import lightgbm as lgb
 from sklearn.metrics import accuracy_score
 import numpy as np
 from time import time
+from snippets import get_random_parameters
 
 
 def train_lgb_model(train_set, test_set, label, training_time):
@@ -45,9 +46,9 @@ def train_lgb_model(train_set, test_set, label, training_time):
 
     while time() < timeout:
 
-        learning_rate.append(10 ** (np.random.uniform(*np.log10(PARAM_RANGE["learning_rate"]))))
-        max_bin.append(int(10 ** (np.random.uniform(*np.log10(PARAM_RANGE["max_bin"])))))
-        num_leaves.append(int(np.random.uniform(*PARAM_RANGE["num_leaves"])))
+        learning_rate.append(get_random_parameters(PARAM_RANGE["learning_rate"], True, False))
+        max_bin.append(get_random_parameters(PARAM_RANGE["max_bin"], False, True))
+        num_leaves.append(get_random_parameters(PARAM_RANGE["num_leaves"], False, True))
 
         params["learning_rate"] = learning_rate[i]
         params["max_bin"] = max_bin[i]
@@ -72,3 +73,5 @@ def train_lgb_model(train_set, test_set, label, training_time):
 
     parameters = [learning_rate, max_bin, num_leaves]
     return all_models, accuracy, parameters
+
+

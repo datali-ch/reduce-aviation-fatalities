@@ -2,9 +2,13 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from snippets import *
 
-def loadData(file, sample_size, process_signals):
+def load_data(file, sample_size, process_signals):
 
     TEST_SIZE = 0.2
+    LABEL = "event"
+    TRAINING_IRRELEVANT = ['crew', 'seat', 'time', 'experiment']
+    LABEL_MAP = {'A': 0, 'B': 1, 'C': 2, 'D': 3}
+
     DTYPES = {"crew": "int8",
               "experiment": "category",
               "time": "float32",
@@ -38,9 +42,11 @@ def loadData(file, sample_size, process_signals):
     df = pd.read_csv(file, nrows=5*sample_size, dtype=DTYPES)
     df = df.sample(n=5*sample_size)
 
-    # Process physiological data
+    # Unique identifier for pilot
     df['pilot'] = 100 * df['seat'] + df['crew']
+    TRAINING_IRRELEVANT.append('pilot')
 
+    # Process physiological data
     if process_signals:
         add_respiration_rate(df)
         add_heart_rate(df)
@@ -50,30 +56,16 @@ def loadData(file, sample_size, process_signals):
             process_eeg_data(df, montage)
 
     df = df.dropna()
-
-    # Normalize features
-    irrelevant_fields = ['crew', 'seat', 'time', 'experiment', 'event', 'pilot']
-    features_n = [item for item in list(df) if item not in irrelevant_fields]
-
     if df.shape[0] < sample_size:
         raise Exception('Your sample is too small to process signals')
+
+    # Prepare data as trainig set
+    features_n = [item for item in list(df) if item not in TRAINING_IRRELEVANT + [LABEL]]
     df = df.sample(n=sample_size)
     data = normalize_by_pilots(df, features_n)
+    data = data.drop(TRAINING_IRRELEVANT, axis=1)
+    data[LABEL] = data[LABEL].apply(lambda x: LABEL_MAP[x])
 
-    # Label outcome states
-    dic = {'A': 0, 'B': 1, 'C': 2, 'D': 3}
-    data["event"] = data["event"].apply(lambda x: dic[x])
-
-    # Delete irrelevant fields
-    irrelevant_fields = ['crew', 'seat', 'time', 'experiment']
-    data = data.drop(irrelevant_fields, axis=1)
-
-    # Get test and train set
     train_set, test_set = train_test_split(data, test_size=TEST_SIZE, random_state=666)
 
     return train_set, test_set
-
-    """
-    # Initiate list with results
-    estimation_ts = []
-    """

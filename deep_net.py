@@ -1,12 +1,14 @@
 import random
-import tensorflow.keras.layers as layers
-import tensorflow as tf
-import numpy as np
 from time import time
+import numpy as np
+import tensorflow as tf
+import tensorflow.keras.layers as layers
 from sklearn.metrics import accuracy_score
+import pickle
+from snippets import get_random_parameters
 
 
-def train_neural_net(train_set, test_set, label, training_time):
+def train_neural_net(train_set, test_set, label, training_time, store_itermediate_results):
     PARAM_RANGE = {
         "learning_rate": (1e-1, 1e-6),
         "layers": (10, 1e3),
@@ -17,6 +19,9 @@ def train_neural_net(train_set, test_set, label, training_time):
     BATCH_SIZE = 1000
     BETA_1 = 0.9
     BETA_2 = 0.999
+
+    PARAM_FILE = "deep_net_stats"
+    MODEL_FILE = "deep_net_model_"
 
     all_models = []
     accuracy = [[], []]
@@ -33,9 +38,9 @@ def train_neural_net(train_set, test_set, label, training_time):
 
     while time() < timeout:
 
-        learning_rate.append(get_random_parameters(PARAM_RANGE["learning_rate"], True))
-        lr_decay.append(bool(random.getrandbits(1)) * get_random_parameters(PARAM_RANGE["lr_decay"], True))
-        deep_layers.append(get_random_parameters(PARAM_RANGE["layers"], False))
+        learning_rate.append(get_random_parameters(PARAM_RANGE["learning_rate"], True, False))
+        lr_decay.append(bool(random.getrandbits(1)) * get_random_parameters(PARAM_RANGE["lr_decay"], True, False))
+        deep_layers.append(get_random_parameters(PARAM_RANGE["layers"], False, True))
 
         # instantiate model
         model = tf.keras.models.Sequential()
@@ -78,32 +83,17 @@ def train_neural_net(train_set, test_set, label, training_time):
             accuracy[j] = np.append(accuracy[j], accuracy_score(dataset[label], predicted))
             j = j + 1
 
-        """
-        curr_stats = np.column_stack((history.history["loss"], history.history["acc"]))
-        estimation_ts.append(curr_stats)
-        
-        with open("modelStats", "wb") as f:
-            pickle.dump(7, f)
-            pickle.dump(accuracy_train, f)
-            pickle.dump(accuracy_test, f)
-            pickle.dump(estimation_ts, f)
-            pickle.dump(alpha, f)
-            pickle.dump(deep_layers, f)
-            pickle.dump(lr_decay, f)
-            pickle.dump(BATCH_NORM, f)
-        
-        history.model.save('models/model_' + str(i) + '.h5')
-        """
+        if store_itermediate_results:
+            with open(PARAM_FILE, "wb") as f:
+                pickle.dump(4, f)
+                pickle.dump(learning_rate, f)
+                pickle.dump(lr_decay, f)
+                pickle.dump(deep_layers, f)
+                pickle.dump(accuracy, f)
+
+            curr_model.model.save(MODEL_FILE + str(i) + '.h5')
+
         i = i + 1
 
     parameters = [learning_rate, lr_decay, deep_layers]
     return all_models, accuracy, parameters
-
-
-def get_random_parameters(param_range, log_scale):
-    if log_scale:
-        param = 10 ** (np.random.uniform(*np.log10(param_range)))
-    else:
-        param = int(np.random.uniform(*param_range))
-
-    return param

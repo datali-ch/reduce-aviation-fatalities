@@ -10,6 +10,16 @@ import numpy as np
 from biosppy.signals import ecg, resp
 from sklearn.preprocessing import MinMaxScaler
 
+def get_random_parameters(param_range, log_scale, is_integer):
+    if log_scale:
+        param = 10 ** (np.random.uniform(*np.log10(param_range)))
+    else:
+        param = np.random.uniform(*param_range)
+
+    if is_integer:
+        param = int(param)
+
+    return param
 
 def process_eeg_data(df, type):
     if type == 'longitudial_bipolar':
