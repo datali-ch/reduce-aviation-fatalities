@@ -1,14 +1,33 @@
+# -*- coding: utf-8 -*-
+
+import pickle
 import random
 from time import time
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras.layers as layers
 from sklearn.metrics import accuracy_score
-import pickle
 from snippets import get_random_parameters
 
+def train_neural_net(train_set, test_set, label, training_time, store_intermediate_results=False):
+    """ Train neural networks with randomly generated hyperparameters: learning rate, learning rate
+    decay and number of layer. Model: fully connected NN for multiclass classification.
 
-def train_neural_net(train_set, test_set, label, training_time, store_itermediate_results=False):
+    Args:
+        train_set(pandas df):                       training set
+        test_set(pandas df):                        test set, same features as in training set
+        label(str):                                 feature with data labels
+        training_time(float):                       training time (in hours)
+        store_intermediate_results(bool, optional): True for saving model at the end of training, False otherwise
+
+    Returns:
+        all_models(list of keras.model):            neural networks models
+        accuracy(list of 2 (N,) np arrays):         in sample (accuracy[0]) and out of sample (accuracy[1]) accuracy
+        parameters(list of 3 (N,) np arrays):       hyperparameters: learning rates (parameters[0]),
+                                                                     learning rate decays (parameters[1]),
+                                                                     num fo layers (parameters[2]),
+    """
+
     PARAM_RANGE = {
         "learning_rate": (1e-1, 1e-6),
         "layers": (10, 1e3),
@@ -83,7 +102,7 @@ def train_neural_net(train_set, test_set, label, training_time, store_itermediat
             accuracy[j] = np.append(accuracy[j], accuracy_score(dataset[label], predicted))
             j = j + 1
 
-        if store_itermediate_results:
+        if store_intermediate_results:
             with open(PARAM_FILE, "wb") as f:
                 pickle.dump(4, f)
                 pickle.dump(learning_rate, f)

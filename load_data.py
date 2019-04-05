@@ -1,8 +1,22 @@
+# -*- coding: utf-8 -*-
+
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from snippets import *
 
-def load_data(file, sample_size, process_signals):
+
+def load_data(file, sample_size=None, process_signals=False):
+    """ Load train.csv dataset from https://www.kaggle.com/c/reducing-commercial-aviation-fatalities
+
+    Args:
+        file(str):                          data file stored locally, full path
+        sample_size(int, optional):         number of randomly sampled observations from file. If None,
+                                            all observations will be included.
+        process_signals(bool, optional):    True to process physiological data, False otherwise.
+    Returns:
+        train_set(pandas df):               df with N out of M observations from data file
+        test_set(pandas df):                df with M-N observations from data file
+    """
 
     TEST_SIZE = 0.2
     LABEL = "event"
@@ -60,8 +74,10 @@ def load_data(file, sample_size, process_signals):
 
     # Prepare data as trainig set
     features_n = [item for item in list(df) if item not in TRAINING_IRRELEVANT + [LABEL]]
-    df = df.sample(n=sample_size)
-    data = normalize_by_pilots(df, features_n)
+    grouping_feature = "pilot"
+    if sample_size is not None:
+        df = df.sample(n=min(sample_size, df.shape[0]))
+    data = normalize_data(df, grouping_feature, features_n)
     data = data.drop(TRAINING_IRRELEVANT, axis=1)
     data[LABEL] = data[LABEL].apply(lambda x: LABEL_MAP[x])
 

@@ -1,10 +1,27 @@
+# -*- coding: utf-8 -*-
+"""
+This script addresses the problem of detecting distraction state of a pilot.
+Using physiological data, it attempts to detect whether a pilot is distracted, sleepy or
+in other dangerous cognitive state. The full problem definition is described at:
+https://www.kaggle.com/c/reducing-commercial-aviation-fatalities/overview
+
+Data needed can be downloaded under the same address.
+
+IMPORTANT: Training machine learning models requires substantial computational resources.
+           Make sure to adjust sample_size and training_time to your needs
+
+Author: Magdalena Surowka
+        Data Scientist | Machine Learning Specialist
+        magdalena.surowka@gmail.co
+"""
+
 from load_data import *
 from lgb_model import *
 from deep_net import *
 from snippets import *
 
 data_file = 'C:/Users/surowka/Documents/reduce-aviation-fatalities/train.csv'
-sample_size = 100000
+sample_size = None
 process_signals = False
 train_set, test_set = load_data(data_file, sample_size, process_signals)
 
@@ -14,7 +31,7 @@ features.remove(label)
 y_true = test_set[label]
 
 # Train models
-training_time = 0.1   # Training time in hours
+training_time = 0.5   # Training time in hours
 deep_networks, accuracy_deep_net, _ = train_neural_net(train_set, test_set, label, training_time)
 lgb_models, accuracy_lgb, _ = train_lgb_model(train_set, test_set, label, training_time)
 

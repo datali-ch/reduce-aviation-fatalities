@@ -1,11 +1,28 @@
-import lightgbm as lgb
-from sklearn.metrics import accuracy_score
-import numpy as np
+# -*- coding: utf-8 -*-
+
 from time import time
+import lightgbm as lgb
+import numpy as np
+from sklearn.metrics import accuracy_score
 from snippets import get_random_parameters
 
-
 def train_lgb_model(train_set, test_set, label, training_time):
+    """ Train Light GBM models with randomly generated hyperparameters: learning rate, max bin and number of leaves.
+    Model: multiclass classification.
+
+    Args:
+        train_set(pandas df):                       training set
+        test_set(pandas df):                        test set, same features as in training set
+        label(str):                                 feature with data labels
+        training_time(float):                       training time (in hours)
+
+    Returns:
+        all_models(list of lightgbm.basic.Booster):  Light GBM models
+        accuracy(list of 2 (N,) np arrays):         in sample (accuracy[0]) and out of sample (accuracy[1]) accuracy
+        parameters(list of 3 (N,) np arrays):       hyperparameters: learning rates (parameters[0]),
+                                                                     max_bin (parameters[1]),
+                                                                     num_leaves (parameters[2]),
+    """
 
     PARAM_RANGE = {
         "learning_rate": (1e-1, 1e-6),

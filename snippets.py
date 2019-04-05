@@ -1,33 +1,50 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Thu Mar 14 22:48:24 2019
 
-@author: surowka
-"""
+import glob
+import os
+import pickle
+import lightgbm as lgb
 import matplotlib.pyplot as plt
-from sklearn.metrics import confusion_matrix
 import numpy as np
-import glob, os
 from biosppy.signals import ecg, resp
+from sklearn.metrics import confusion_matrix
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import load_model
-import lightgbm as lgb
-import pickle
 
+def normalize_data(df, grouping_feature, features_to_scale):
+    """ Normalize dataset separately for each value of grouping feature
 
-def normalize_by_pilots(df, features_to_scale):
-    curr_df = df.copy()
-    pilots = curr_df["pilot"].unique()
+    Args:
+        df(pandas df):                 dataset to scale
+        grouping_feature(str):         feature by which df will be split to perform normalization
+        features_to_scale(list of str):features to normalize
+
+    Returns:
+        normalized_df(pandas df):      df with normalized features_to_scale
+    """
+
+    normalized_df = df.copy()
+    pilots = normalized_df[grouping_feature].unique()
 
     for pilot in pilots:
-        ids = curr_df[curr_df["pilot"] == pilot].index
+        ids = normalized_df[normalized_df[grouping_feature] == pilot].index
         scaler = MinMaxScaler()
-        curr_df.loc[ids, features_to_scale] = scaler.fit_transform(curr_df.loc[ids, features_to_scale])
+        normalized_df.loc[ids, features_to_scale] = scaler.fit_transform(normalized_df.loc[ids, features_to_scale])
 
-    return curr_df
+    return normalized_df
 
 
 def get_random_parameters(param_range, log_scale, is_integer):
+    """ Simulate random numbers in given range
+    Args:
+        param_range(tuple of len=2):        range of parameter
+        log_scale(bool):                    scale of parameter. True for log scale, False for uniform scale
+        is_integer(bool):                   format of parameter. True for integer, False for real number
+
+    Returns:
+        param(float or int):                randomly simulated parameter within param_range on log/uniform scale
+    """
+
     if log_scale:
         param = 10 ** (np.random.uniform(*np.log10(param_range)))
     else:
@@ -40,6 +57,15 @@ def get_random_parameters(param_range, log_scale, is_integer):
 
 
 def process_eeg_data(df, type):
+    """ Process EEG signal to get potential difference. Use one of clinically used montages. Add potential
+    differences to input.
+
+    Args:
+        df(pandas df):      dataset with ECG signal labelled as 'ecg'
+        type(list of str):  EEG montages. Supported values: "longitudial_bipolar", "cz_reference", "crossed_bipolar"
+
+    """
+
     if type == 'longitudial_bipolar':
 
         electrodes_from = ['eeg_fp1', 'eeg_f7', 'eeg_t3', 'eeg_t5', 'eeg_fp1', 'eeg_f3', 'eeg_c3', 'eeg_p3', 'eeg_fz',
@@ -68,6 +94,13 @@ def process_eeg_data(df, type):
 
 
 def add_respiration_rate(df):
+    """ Process chest movement signal to calculate respiration rate. Add the respiration rate to input as
+    'respiration_rate' feature.
+
+    Args:
+        df(pandas df):                 dataset with chest movement signal labelled as 'r'
+    """
+
     df["respiration_rate"] = np.nan
 
     all_pilots = df.pilot.unique()
@@ -96,20 +129,42 @@ def add_respiration_rate(df):
 
 
 def import_perceptron_stats(file_name):
+    """ Import hyperparameters and accuracy for perceptron models estimated and saved with train_neural_net()
+
+    Args:
+        file_name(str):                     model data file generated with train_neural_net(), full path
+
+    Returns:
+        model_data(dict):                   hyperparameters and accuracy for stored perceptron models. Consists of:
+            learning_rate((N,) np array):       learning rates
+            lr_decay((N,) np array):            learning rate decaya
+            deep_layers((N,) np array):         number of fully connected layers in NN
+            accuracy(list of 2 (N,) np arrays): in sample (accuracy[0]) and out of sample (accuracy[1]) accuracy
+    """
+
     model_stats = []
     with open(file_name, "rb") as f:
         for _ in range(pickle.load(f)):
             model_stats.append(pickle.load(f))
 
-    dict = {"learning_rate": model_stats[0],
-            "lr_decay": model_stats[1],
-            "deep_layers": model_stats[2],
-            "accuracy": model_stats[3]}
+    model_data = {"learning_rate": model_stats[0],
+                  "lr_decay": model_stats[1],
+                  "deep_layers": model_stats[2],
+                  "accuracy": model_stats[3]}
 
-    return dict
+    return model_data
 
 
 def import_perceptron_models(directory):
+    """ Import all keras models saved in given directory
+
+    Args:
+        directory(str):                     folder directory where keras models are stored
+
+    Returns:
+        all_models(list of keras.model):    neural networks models
+    """
+
     os.chdir(directory)
     all_models = []
     for file in glob.glob("*.h5"):
@@ -120,6 +175,18 @@ def import_perceptron_models(directory):
 
 
 def plot_feature_importance(lgb_model, show=True):
+    """ Plot feature importance of Light GBM Model
+
+    Args:
+        lgb_model(lightgbm.basic.Booster):    trained Light GBM Model
+        show(bool, optional):                 display image. True for showing the image, False otherwise
+
+    Returns:
+        fig(matplotlib figure):               feature importance plot
+        ax(matplotlib.axes):                  fig axes
+    """
+
+
     fig, ax = plt.subplots(figsize=(12, 10))
     lgb.plot_importance(lgb_model, height=0.8, ax=ax)
     ax.grid(False)
@@ -132,6 +199,18 @@ def plot_feature_importance(lgb_model, show=True):
 
 
 def plot_training_progress(perceptron_models, indices, metric, show=True):
+    """ Plot log loss or accuracy of neural network during training
+
+    Args:
+        perceptron_models(list of keras.model):    neural networks models
+        indices((N,) np array):                    indices of models to display
+        metric(str):                               model quality metric. 'loss' for log loss, 'accuracy' for accuracy
+        show(bool, optional):                      display image. True for showing the image, False otherwise
+
+    Returns:
+        fig(matplotlib figure):                    feature accuracy or log loss plot for len(indices) models
+        ax(matplotlib.axes):                       fig axes
+    """
 
     fig, ax = plt.subplots(figsize=(12, 10))
     for ind in indices:
@@ -155,6 +234,13 @@ def plot_training_progress(perceptron_models, indices, metric, show=True):
 
 
 def add_heart_rate(df):
+    """ Process ECG signal to calculate heart rate. Add the heart rate to input as 'heart_rate' feature.
+
+    Args:
+        df(pandas df):                 dataset with ECG signal labelled as 'ecg'
+    """
+
+
     df["heart_rate"] = np.nan
 
     all_pilots = df.pilot.unique()
