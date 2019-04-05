@@ -8,14 +8,14 @@ import pickle
 from snippets import get_random_parameters
 
 
-def train_neural_net(train_set, test_set, label, training_time, store_itermediate_results):
+def train_neural_net(train_set, test_set, label, training_time, store_itermediate_results=False):
     PARAM_RANGE = {
         "learning_rate": (1e-1, 1e-6),
         "layers": (10, 1e3),
         "lr_decay": (0.5, 1e-8)
     }
     BATCH_NORM = False
-    EPOCHS = 10
+    EPOCHS = 100
     BATCH_SIZE = 1000
     BETA_1 = 0.9
     BETA_2 = 0.999
@@ -31,7 +31,7 @@ def train_neural_net(train_set, test_set, label, training_time, store_itermediat
 
     features = list(train_set)
     features.remove(label)
-    num_class = len(np.unique(train_set[label])) + 1
+    num_class = len(np.unique(train_set[label]))
 
     i = 0
     timeout = time() + 60 * 60 * training_time
@@ -46,7 +46,7 @@ def train_neural_net(train_set, test_set, label, training_time, store_itermediat
         model = tf.keras.models.Sequential()
 
         # Input layers
-        model.add(layers.Dense(10, input_dim=train_set.shape[1] - 1))
+        model.add(layers.Dense(10, input_dim=train_set[features].shape[1]))
         if BATCH_NORM:
             model.add(layers.BatchNormalization())
         model.add(layers.Activation('relu'))
@@ -89,7 +89,7 @@ def train_neural_net(train_set, test_set, label, training_time, store_itermediat
                 pickle.dump(learning_rate, f)
                 pickle.dump(lr_decay, f)
                 pickle.dump(deep_layers, f)
-                pickle.dump(accuracy, f)
+                pickle.dump(accuracy[j], f)
 
             curr_model.model.save(MODEL_FILE + str(i) + '.h5')
 

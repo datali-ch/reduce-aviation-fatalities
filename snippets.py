@@ -5,10 +5,27 @@ Created on Thu Mar 14 22:48:24 2019
 @author: surowka
 """
 import matplotlib.pyplot as plt
-from sklearn.metrics import confusion_matrix, log_loss
+from sklearn.metrics import confusion_matrix
 import numpy as np
+import glob, os
 from biosppy.signals import ecg, resp
 from sklearn.preprocessing import MinMaxScaler
+from tensorflow.keras.models import load_model
+import lightgbm as lgb
+import pickle
+
+
+def normalize_by_pilots(df, features_to_scale):
+    curr_df = df.copy()
+    pilots = curr_df["pilot"].unique()
+
+    for pilot in pilots:
+        ids = curr_df[curr_df["pilot"] == pilot].index
+        scaler = MinMaxScaler()
+        curr_df.loc[ids, features_to_scale] = scaler.fit_transform(curr_df.loc[ids, features_to_scale])
+
+    return curr_df
+
 
 def get_random_parameters(param_range, log_scale, is_integer):
     if log_scale:
@@ -20,6 +37,7 @@ def get_random_parameters(param_range, log_scale, is_integer):
         param = int(param)
 
     return param
+
 
 def process_eeg_data(df, type):
     if type == 'longitudial_bipolar':
@@ -77,6 +95,65 @@ def add_respiration_rate(df):
     df["respiration_rate"].astype('float32')
 
 
+def import_perceptron_stats(file_name):
+    model_stats = []
+    with open(file_name, "rb") as f:
+        for _ in range(pickle.load(f)):
+            model_stats.append(pickle.load(f))
+
+    dict = {"learning_rate": model_stats[0],
+            "lr_decay": model_stats[1],
+            "deep_layers": model_stats[2],
+            "accuracy": model_stats[3]}
+
+    return dict
+
+
+def import_perceptron_models(directory):
+    os.chdir(directory)
+    all_models = []
+    for file in glob.glob("*.h5"):
+        curr_model = load_model(file)
+        all_models.append(curr_model)
+
+    return all_models
+
+
+def plot_feature_importance(lgb_model, show=True):
+    fig, ax = plt.subplots(figsize=(12, 10))
+    lgb.plot_importance(lgb_model, height=0.8, ax=ax)
+    ax.grid(False)
+    plt.ylabel('Feature', size=12)
+    plt.xlabel('Importance', size=12)
+    plt.title("Feature Importance in LightGBM Model", fontsize=15)
+    if show:
+        plt.show()
+    return ax
+
+
+def plot_training_progress(perceptron_models, indices, metric, show=True):
+
+    fig, ax = plt.subplots(figsize=(12, 10))
+    for ind in indices:
+        ts = perceptron_models[ind].history[metric]
+        ax.plot(range(1, len(ts) + 1), ts, label='Model ' + str(ind))
+
+    plt.xlabel('Epochs')
+    if metric is 'loss':
+        plt.ylabel('Log loss')
+        plt.title('Model loss during training', fontsize=15)
+        plt.legend(loc='upper right')
+    else:
+        plt.ylabel('Accuracy')
+        plt.title('Model accuracy during training', fontsize=15)
+        plt.legend(loc='lower right')
+
+    if show:
+        plt.show()
+
+    return ax
+
+
 def add_heart_rate(df):
     df["heart_rate"] = np.nan
 
@@ -106,39 +183,8 @@ def add_heart_rate(df):
     df["heart_rate"].astype('float32')
 
 
-def normalize_by_pilots(df, features_to_scale):
-    curr_df = df.copy()
-    pilots = curr_df["pilot"].unique()
-
-    for pilot in pilots:
-        ids = curr_df[curr_df["pilot"] == pilot].index
-        scaler = MinMaxScaler()
-        curr_df.loc[ids, features_to_scale] = scaler.fit_transform(curr_df.loc[ids, features_to_scale])
-
-    return curr_df
-
-
-def run_lgb(features_train, features_test, labels_train, labels_test, params):
-    params = {"objective": "multiclass",
-              "num_class": 4,
-              "metric": "multi_error",
-              "num_leaves": 30,
-              "min_child_weight": 50,
-              "learning_rate": 0.1,
-              "bagging_fraction": 0.7,
-              "feature_fraction": 0.7,
-              "bagging_seed": 420,
-              "verbosity": -1
-              }
-
-    lg_train = lgb.Dataset(features_train, label=labels_train)
-    lg_test = lgb.Dataset(features_test, label=labels_test)
-    model = lgb.train(params, lg_train, 1000, valid_sets=[lg_test], early_stopping_rounds=50, verbose_eval=100)
-
-    return model
-
-
 def plot_confusion_matrix(y_true, y_pred, classes,
+                          show=True,
                           normalize=False,
                           title=None,
                           cmap=plt.cm.Blues):
@@ -190,4 +236,6 @@ def plot_confusion_matrix(y_true, y_pred, classes,
                     ha="center", va="center",
                     color="white" if cm[i, j] > thresh else "black")
     fig.tight_layout()
+    if show:
+        plt.show()
     return ax

@@ -39,8 +39,7 @@ def load_data(file, sample_size, process_signals):
               "event": "category",
               }
 
-    df = pd.read_csv(file, nrows=5*sample_size, dtype=DTYPES)
-    df = df.sample(n=5*sample_size)
+    df = pd.read_csv(file, dtype=DTYPES)
 
     # Unique identifier for pilot
     df['pilot'] = 100 * df['seat'] + df['crew']
