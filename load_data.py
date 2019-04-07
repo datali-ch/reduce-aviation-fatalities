@@ -38,9 +38,9 @@ def load_data(file: str, sample_size: int=None, process_signals: bool=False) -> 
         for montage in MONTAGES:
             process_eeg_data(df, montage)
 
-    df = df.dropna()
-    if df.shape[0] < sample_size:
-        raise ValueError('Your sample is too small to process signals')
+        df = df.dropna()
+        if (sample_size is not None) and (df.shape[0] < sample_size):
+	        raise ValueError('Your sample is too small to process signals')
 
     # Prepare data as trainig set
     features_n = [item for item in list(df) if item not in TRAINING_IRRELEVANT + [LABEL]]
