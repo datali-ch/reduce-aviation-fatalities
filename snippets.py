@@ -1,17 +1,26 @@
 # -*- coding: utf-8 -*-
 
 import glob
+import json
 import os
-import pickle
+
 import lightgbm as lgb
 import matplotlib.pyplot as plt
 import numpy as np
 from biosppy.signals import ecg, resp
+from keras import Model
+from lightgbm import Booster
+from matplotlib.axes import Axes
+from matplotlib.colors import Colormap
+from numpy import ndarray
+from pandas import DataFrame
 from sklearn.metrics import confusion_matrix
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import load_model
+from typing import Dict, List, Tuple, Union
 
-def normalize_data(df, grouping_feature, features_to_scale):
+
+def normalize_data(df: DataFrame, grouping_feature: str, features_to_scale: Union[list, str]) -> DataFrame:
     """ Normalize dataset separately for each value of grouping feature
 
     Args:
@@ -34,7 +43,7 @@ def normalize_data(df, grouping_feature, features_to_scale):
     return normalized_df
 
 
-def get_random_parameters(param_range, log_scale, is_integer):
+def get_random_parameters(param_range: Tuple[float, float]=None, log_scale: bool=True, is_integer: bool=False, **kwargs) -> Union[float, int]:
     """ Simulate random numbers in given range
     Args:
         param_range(tuple of len=2):        range of parameter
@@ -56,7 +65,7 @@ def get_random_parameters(param_range, log_scale, is_integer):
     return param
 
 
-def process_eeg_data(df, type):
+def process_eeg_data(df: DataFrame, type: Union[list, str]) -> None:
     """ Process EEG signal to get potential difference. Use one of clinically used montages. Add potential
     differences to input.
 
@@ -93,7 +102,7 @@ def process_eeg_data(df, type):
         df[col_name].astype('float32')
 
 
-def add_respiration_rate(df):
+def add_respiration_rate(df: DataFrame) -> None:
     """ Process chest movement signal to calculate respiration rate. Add the respiration rate to input as
     'respiration_rate' feature.
 
@@ -128,34 +137,24 @@ def add_respiration_rate(df):
     df["respiration_rate"].astype('float32')
 
 
-def import_perceptron_stats(file_name):
+def import_perceptron_stats(file_name: str) -> Dict[str, list]:
     """ Import hyperparameters and accuracy for perceptron models estimated and saved with train_neural_net()
 
     Args:
         file_name(str):                     model data file generated with train_neural_net(), full path
 
     Returns:
-        model_data(dict):                   hyperparameters and accuracy for stored perceptron models. Consists of:
-            learning_rate((N,) np array):       learning rates
-            lr_decay((N,) np array):            learning rate decaya
-            deep_layers((N,) np array):         number of fully connected layers in NN
-            accuracy(list of 2 (N,) np arrays): in sample (accuracy[0]) and out of sample (accuracy[1]) accuracy
+        dict:                               hyperparameters and accuracy for stored perceptron models. Consists of:
+            learning_rate((N,) list):       learning rates
+            lr_decay((N,) list):            learning rate decaya
+            deep_layers((N,) list):         number of fully connected layers in NN
+            accuracy(list of 2 (N,) lists): in sample (accuracy[0]) and out of sample (accuracy[1]) accuracy
     """
 
-    model_stats = []
     with open(file_name, "rb") as f:
-        for _ in range(pickle.load(f)):
-            model_stats.append(pickle.load(f))
+        return json.load(f)
 
-    model_data = {"learning_rate": model_stats[0],
-                  "lr_decay": model_stats[1],
-                  "deep_layers": model_stats[2],
-                  "accuracy": model_stats[3]}
-
-    return model_data
-
-
-def import_perceptron_models(directory):
+def import_perceptron_models(directory: str) -> List[Model]:
     """ Import all keras models saved in given directory
 
     Args:
@@ -174,18 +173,16 @@ def import_perceptron_models(directory):
     return all_models
 
 
-def plot_feature_importance(lgb_model, show=True):
+def plot_feature_importance(lgb_model: Booster, show: bool=True) -> Axes:
     """ Plot feature importance of Light GBM Model
 
     Args:
-        lgb_model(lightgbm.basic.Booster):    trained Light GBM Model
+        lgb_model(lightgbm Booster):          trained Light GBM Model
         show(bool, optional):                 display image. True for showing the image, False otherwise
 
     Returns:
-        fig(matplotlib figure):               feature importance plot
-        ax(matplotlib.axes):                  fig axes
+        ax(matplotlib axes):                  fig axes
     """
-
 
     fig, ax = plt.subplots(figsize=(12, 10))
     lgb.plot_importance(lgb_model, height=0.8, ax=ax)
@@ -194,11 +191,12 @@ def plot_feature_importance(lgb_model, show=True):
     plt.xlabel('Importance', size=12)
     plt.title("Feature Importance in LightGBM Model", fontsize=15)
     if show:
-        plt.show()
+        plt.draw()
+        plt.pause(0.05)
     return ax
 
 
-def plot_training_progress(perceptron_models, indices, metric, show=True):
+def plot_training_progress(perceptron_models: List[Model], indices: ndarray, metric: str, show: bool=True) -> Axes:
     """ Plot log loss or accuracy of neural network during training
 
     Args:
@@ -208,8 +206,7 @@ def plot_training_progress(perceptron_models, indices, metric, show=True):
         show(bool, optional):                      display image. True for showing the image, False otherwise
 
     Returns:
-        fig(matplotlib figure):                    feature accuracy or log loss plot for len(indices) models
-        ax(matplotlib.axes):                       fig axes
+        ax(matplotlib axes.Axes):                  fig axes
     """
 
     fig, ax = plt.subplots(figsize=(12, 10))
@@ -228,18 +225,18 @@ def plot_training_progress(perceptron_models, indices, metric, show=True):
         plt.legend(loc='lower right')
 
     if show:
-        plt.show()
+        plt.draw()
+        plt.pause(0.05)
 
     return ax
 
 
-def add_heart_rate(df):
+def add_heart_rate(df: DataFrame) -> None:
     """ Process ECG signal to calculate heart rate. Add the heart rate to input as 'heart_rate' feature.
 
     Args:
         df(pandas df):                 dataset with ECG signal labelled as 'ecg'
     """
-
 
     df["heart_rate"] = np.nan
 
@@ -269,11 +266,11 @@ def add_heart_rate(df):
     df["heart_rate"].astype('float32')
 
 
-def plot_confusion_matrix(y_true, y_pred, classes,
-                          show=True,
-                          normalize=False,
-                          title=None,
-                          cmap=plt.cm.Blues):
+def plot_confusion_matrix(y_true: ndarray, y_pred: ndarray, classes: list,
+                          show: bool=True,
+                          normalize: bool=False,
+                          title: str=None,
+                          cmap: Colormap=plt.cm.Blues) -> Axes:
     """
     Code from: https://scikit-learn.org/stable/auto_examples/model_selection/plot_confusion_matrix.html
     This function prints and plots the confusion matrix.
@@ -323,5 +320,6 @@ def plot_confusion_matrix(y_true, y_pred, classes,
                     color="white" if cm[i, j] > thresh else "black")
     fig.tight_layout()
     if show:
-        plt.show()
+        plt.draw()
+        plt.pause(0.05)
     return ax

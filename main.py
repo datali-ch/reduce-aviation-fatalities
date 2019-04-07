@@ -12,46 +12,68 @@ IMPORTANT: Training machine learning models requires substantial computational r
 
 Author: Magdalena Surowka
         Data Scientist | Machine Learning Specialist
-        magdalena.surowka@gmail.co
+        magdalena.surowka@gmail.com
 """
 
-from load_data import *
-from lgb_model import *
-from deep_net import *
-from snippets import *
-
-data_file = 'C:/Users/surowka/Documents/reduce-aviation-fatalities/train.csv'
-sample_size = None
-process_signals = False
-train_set, test_set = load_data(data_file, sample_size, process_signals)
-
-label = "event"
-features = list(train_set)
-features.remove(label)
-y_true = test_set[label]
-
-# Train models
-training_time = 0.5   # Training time in hours
-deep_networks, accuracy_deep_net, _ = train_neural_net(train_set, test_set, label, training_time)
-lgb_models, accuracy_lgb, _ = train_lgb_model(train_set, test_set, label, training_time)
-
-# Results - Fully Connected NN
-ind = np.argsort(-accuracy_deep_net[1])
-best_neural_net = deep_networks[ind[0]]
-y_pred = np.argmax(best_neural_net.model.predict(test_set[features]), axis=1)
-
-models_to_plot = 3
-plot_training_progress(deep_networks, ind[:models_to_plot], 'loss')
-plot_confusion_matrix(y_true, y_pred, classes=[0,1,2,3], normalize=True,
-                      title='Best Neural Network \n Normalized confusion matrix')
+import argparse
+import numpy as np
+from config import (CLASSES, DATA_FILE, LABEL, PROCESS_SIGNALS, SAMPLE_SIZE,
+                    SAVE_INTERMEDIATE_RESULTS, DEFAULT_TRAINING_TIME_LGB,
+                    DEFAULT_TRAINING_TIME_PERCEPTRON, MODELS_TO_PLOT)
+from deep_net import train_neural_net
+from lgb_model import train_lgb_model
+from load_data import load_data
+from matplotlib import pyplot as plt
+from snippets import (plot_confusion_matrix, plot_feature_importance,
+                      plot_training_progress)
 
 
-# Results - Light GBM
-ind = np.argsort(-accuracy_lgb[1])
-best_lbg = lgb_models[ind[0]]
-y_pred = np.argmax(best_lbg.predict(test_set[features], num_iteration=best_lbg.best_iteration), axis=1)
+def main(args: argparse.Namespace) -> None:
+    """Main function
+    """
+    train_set, test_set = load_data(DATA_FILE, SAMPLE_SIZE, PROCESS_SIGNALS)
 
-plot_confusion_matrix(y_true, y_pred, classes=[0,1,2,3], normalize=True,
-                      title='Best LightGBM Model\n Normalized confusion matrix')
-plot_feature_importance(best_lbg, True)
+    features = list(train_set)
+    features.remove(LABEL)
+    y_true = test_set[LABEL]
 
+    # Train models
+    deep_networks, accuracy_deep_net, _ = train_neural_net(train_set, test_set, LABEL, args.training_time_perceptron, args.save)
+    lgb_models, accuracy_lgb, _ = train_lgb_model(train_set, test_set, LABEL, args.training_time_lgb)
+
+    # Results - Fully Connected NN
+    ind = np.argsort(-1 * np.array(accuracy_deep_net[1]))
+    best_neural_net = deep_networks[ind[0]]
+    y_pred = np.argmax(best_neural_net.model.predict(test_set[features]), axis=1)
+
+    models_to_plot = min([MODELS_TO_PLOT, len(deep_networks)])
+    plot_training_progress(deep_networks, ind[:models_to_plot], 'loss')
+
+    plot_confusion_matrix(y_true, y_pred, classes=CLASSES, normalize=True,
+                          title='Best Neural Network \n Normalized confusion matrix')
+
+
+    # Results - Light GBM
+    ind = np.argsort(-1 * np.array(accuracy_lgb[1]))
+    best_lbg = lgb_models[ind[0]]
+    y_pred = np.argmax(best_lbg.predict(test_set[features], num_iteration=best_lbg.best_iteration), axis=1)
+
+    plot_confusion_matrix(y_true, y_pred, classes=CLASSES, normalize=True,
+                          title='Best LightGBM Model\n Normalized confusion matrix')
+    plot_feature_importance(best_lbg, True)
+
+def get_arg_parser():
+    parser = argparse.ArgumentParser(description="This script addresses the problem of detecting distraction state of a pilot.")
+
+    parser.add_argument('--save', action='store_true', help="Save the intermediaite results")
+    parser.add_argument('--training-time-perceptron', type=float, default=DEFAULT_TRAINING_TIME_PERCEPTRON,
+                        help="Training time for fully connected neural network (in hours)")
+    parser.add_argument('--training-time-lgb', type=float, default=DEFAULT_TRAINING_TIME_LGB,
+                        help="Training time for Light GBM model (in hours)")
+
+    return parser
+
+if __name__ == "__main__":
+    args = get_arg_parser().parse_args()
+    main(args)
+    plt.show() # Keep plots open after main will have finished
