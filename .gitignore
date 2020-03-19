@@ -4,3 +4,5 @@
 *.iml
 *.h5
 venv
+.vscode/
+~$aviation_fatalities.pptx
