@@ -106,8 +106,9 @@ def train_neural_net(
             model.add(layers.BatchNormalization())
         model.add(layers.Activation("relu"))
 
-        # Intermediary layers
+        # Intermediary layer
         model.add(layers.Dense(deep_layers[model_index]))
+
         if BATCH_NORM:
             model.add(layers.BatchNormalization())
         model.add(layers.Activation("relu"))

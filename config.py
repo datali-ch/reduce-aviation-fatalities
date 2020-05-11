@@ -51,7 +51,7 @@ DTYPES = {
 }
 
 # Config parameters for train_neural_net()
-PARAM_RANGE_PERCEPTRON = {"learning_rate": (1e-1, 1e-6), "layers": (10, 1e3), "lr_decay": (0.5, 1e-8)}
+PARAM_RANGE_PERCEPTRON = {"learning_rate": (1e-1, 1e-6), "layers": (10, 100), "lr_decay": (0.5, 1e-8)}
 BATCH_NORM = False
 EPOCHS = 1000
 BATCH_SIZE = 80000

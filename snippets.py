@@ -218,7 +218,7 @@ def import_perceptron_models(directory: str) -> List[Model]:
     """ Import all keras models saved in given directory
 
     Args:
-        directory:                     folder directory where keras models are stored
+        directory:                    folder directory where keras models are stored
 
     Returns:
         all_models:                   neural networks models

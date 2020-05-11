@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "reduce-aviation-fatalities"
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+numpy = "^1.16.2"
+tensorflow-gpu = "^1.15.2"
+keras = "2.2.4"
+scikit-learn = "0.20.3"
+pandas = "0.24.2"
+lightgbm = "2.2.3"
+matplotlib = "3.0.3"
+biosppy = {git = "https://github.com/magdasalatka/BioSPPy.git"}
+
+[tool.poetry.dev-dependencies]
+autopep8 = "^1.5.2"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"

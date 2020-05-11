@@ -6,3 +6,6 @@
 venv
 .vscode/
 ~$aviation_fatalities.pptx
+.ipynb_checkpoints/
+.pptx#
+.json
